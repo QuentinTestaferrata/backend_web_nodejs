@@ -1,15 +1,14 @@
 const express = require('express');
 const app = express();
 const PORT = 3000;
-const taskRoutes = require('./routes/tasks');
 
-app.use(taskRoutes);
 app.use(express.json());
 
-
+const taskRoutes = require('./routes/tasks');
+app.use('/tasks', taskRoutes);
 
 app.get('/', (req, res) => {
-  res.send('Hi TaskmanagerAPI!');
+  res.send('Hello, Task Manager API!');
 });
 
 app.listen(PORT, () => {
