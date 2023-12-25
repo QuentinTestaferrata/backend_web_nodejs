@@ -2,10 +2,11 @@ const express = require('express');
 const { body, validationResult } = require('express-validator');
 const router = express.Router();
 const Task = require('../models/task'); 
+const StickyNote = require('../models/sticky_note');
+
 
 // GET all tasks
-// GET all with search for example     http://localhost:3000/tasks?search=testtask
-
+//Voorbeeld: GET http://localhost:3000/tasks
 router.get('/', async (req, res) => {
   let { page, pageSize, search } = req.query;
   page = page >= 1 ? parseInt(page) : 1;
@@ -13,35 +14,52 @@ router.get('/', async (req, res) => {
 
   let query = {};
   if (search) {
-    query.title = { $regex: search, $options: 'i' }; //case niet sensitive maken
+    query.title = { $regex: search, $options: 'i' }; // non- case sensitive search
   }
   try {
     const tasks = await Task.find(query)
       .skip((page - 1) * pageSize)
       .limit(pageSize);
-    res.json(tasks);
+
+    const tasksWithStickyNotes = await Promise.all(tasks.map(async (task) => {
+      const stickyNotes = await StickyNote.find({ task: task._id }).select('content -_id'); //"content field" selecten en id wegdoen van stikynote
+      return {
+        ...task.toObject(),
+        stickyNotes: stickyNotes.map(note => note.content) // sticky notes transformen naar array van strings
+      };
+    }));
+
+    res.json(tasksWithStickyNotes);
   } catch (error) {
     res.status(500).send('Server error');
   }
 });
 
-
-// GET single task by id
+// GET single task by id with corresponding sticky notes
+//Voorbeeld: GET http://localhost:3000/tasks/65898989097100c7342bd57d
 router.get('/:id', async (req, res) => {
   try {
     const task = await Task.findById(req.params.id);
     if (!task) return res.status(404).send('Task not found');
-    res.json(task);
+
+    const stickyNotes = await StickyNote.find({ task: req.params.id });
+
+    res.json({ task, stickyNotes });
   } catch (error) {
     res.status(500).send('Server error');
   }
 });
 
-
-
-
-
-// POST a new task with data validation
+// POST new task met data validatie
+// Voorbeeld: POST http://localhost:3000/tasks
+//body -> raw 
+//{
+//  "title": "new Task",
+//  "description": "This is a sample task",
+//  "priority": "High",
+//  "dueDate": "2023-01-30",
+//  "status": "Pending"
+//}
 router.post('/',
 [
   body('title').not().isEmpty().withMessage('Title is required'),
@@ -74,6 +92,12 @@ router.post('/',
 );
 
 // PUT to update a task
+// Voorbeeld: PUT http://localhost:3000/tasks/65898989097100c7342bd57d
+// body -> raw
+//{
+//  "title": "Updated Task",
+//  "status": "Completed"
+//}
 router.put('/:id', 
 [
   body('title').optional(),
@@ -106,6 +130,7 @@ async (req, res) => {
 });
 
 // DELETE a task
+// Voorbeeld: DELETE http://localhost:3000/tasks/65898989097100c7342bd57d
 router.delete('/:id', async (req, res) => {
   try {
     const task = await Task.findById(req.params.id);
@@ -117,10 +142,42 @@ router.delete('/:id', async (req, res) => {
     res.status(500).send('Server error');
   }
 });
+
+//voorbeeld : DELETE http://localhost:3000/tasks/del/all
+//Delete All Tasks
 router.delete('/del/all', async (req, res) => {
   try {
     await Task.deleteMany({});
     res.json({ message: 'All tasks deleted' });
+  } catch (error) {
+    res.status(500).send('Server error');
+  }
+});
+
+//////////////////////////////////
+////////// STICKY NOTES //////////
+//////////////////////////////////
+
+// POST a new Sticky Note
+//Voorbeeld: POST http://localhost:3000/tasks/65898360b57075c6ae776545/stickynotes
+//body->raw-> 
+// {
+//    "content": "StickyNote Voorbeeld"
+// }
+router.post('/:id/stickynotes', async (req, res) => {
+  try {
+    const task = await Task.findById(req.params.id);
+    if (!task) {
+      return res.status(404).send('Task not found');
+    }
+
+    const stickyNote = new StickyNote({
+      ...req.body,
+      task: req.params.id
+    });
+
+    await stickyNote.save();
+    res.status(201).json(stickyNote);
   } catch (error) {
     res.status(500).send('Server error');
   }
