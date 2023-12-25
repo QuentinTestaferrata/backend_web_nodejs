@@ -183,4 +183,44 @@ router.post('/:id/stickynotes', async (req, res) => {
   }
 });
 
+// DELETE a Sticky Note by ID
+// Voorbeeld: DELETE http://localhost:3000/tasks/stickynotes/65898cc4097100c7342bd592
+router.delete('/stickynotes/:noteId', async (req, res) => {
+  try {
+    const stickyNote = await StickyNote.findById(req.params.noteId);
+    if (!stickyNote) return res.status(404).send('Sticky note not found');
+
+    await StickyNote.deleteOne({ _id: req.params.noteId });
+    res.json({ message: 'Sticky note deleted' });
+  } catch (error) {
+    res.status(500).send('Server error');
+  }
+});
+
+// PUT to update a sticky note's content
+// Voorbeeld: PUT http://localhost:3000/tasks/stickynotes/5f2b88b6ec4d6638c0521f2b
+//body->raw
+//{
+//  "content": "Update van content van stickynote."
+//}
+router.put('/stickynotes/:noteId', async (req, res) => {
+  try {
+    const { content } = req.body;
+    if (!content) {
+      return res.status(400).send('Content is required');
+    }
+
+    const stickyNote = await StickyNote.findById(req.params.noteId);
+    if (!stickyNote) return res.status(404).send('Sticky note not found');
+
+    stickyNote.content = content;
+    await stickyNote.save();
+
+    res.json({ message: 'Sticky note updated', stickyNote });
+  } catch (error) {
+    res.status(500).send('Server error');
+  }
+});
+
+
 module.exports = router;
