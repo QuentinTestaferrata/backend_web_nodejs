@@ -4,9 +4,13 @@ const router = express.Router();
 const Task = require('../models/task'); 
 const StickyNote = require('../models/sticky_note');
 
+///////////////////////////
+////////// TASKS //////////
+///////////////////////////
 
 // GET all tasks
 //Voorbeeld: GET http://localhost:3000/tasks
+//Zoeken op task titel: http://localhost:3000/tasks?search="TaskTitel"
 router.get('/', async (req, res) => {
   let { page, pageSize, search } = req.query;
   page = page >= 1 ? parseInt(page) : 1;
@@ -217,6 +221,22 @@ router.put('/stickynotes/:noteId', async (req, res) => {
     await stickyNote.save();
 
     res.json({ message: 'Sticky note updated', stickyNote });
+  } catch (error) {
+    res.status(500).send('Server error');
+  }
+});
+
+// DELETE all sticky notes for a specific task
+// Example: DELETE http://localhost:3000/tasks/65898360b57075c6ae776545/stickynotes/all
+router.delete('/:id/stickynotes/all', async (req, res) => {
+  try {
+    const task = await Task.findById(req.params.id);
+    if (!task) {
+      return res.status(404).send('Task not found');
+    }
+
+    await StickyNote.deleteMany({ task: req.params.id });
+    res.json({ message: 'All sticky notes for the task deleted' });
   } catch (error) {
     res.status(500).send('Server error');
   }
