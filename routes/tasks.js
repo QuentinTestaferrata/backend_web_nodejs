@@ -8,6 +8,39 @@ const StickyNote = require('../models/sticky_note');
 ////////// TASKS //////////
 ///////////////////////////
 
+// GET all task titles grouped by priority
+// Example: GET http://localhost:3000/tasks/priority
+router.get('/priority', async (req, res) => {
+  try {
+    const tasks = await Task.find().select('title priority -_id').sort('priority');
+    const taskTitlesByPriority = {
+      High: [],
+      Medium: [],
+      Low: []
+    };
+
+    tasks.forEach(task => {
+      taskTitlesByPriority[task.priority].push(task.title);
+    });
+
+    let formattedResponse = '';
+    if (taskTitlesByPriority.High.length) {
+      formattedResponse += 'High priority tasks:\n' + taskTitlesByPriority.High.map(title => `"${title}"`).join('\n') + '\n';
+    }
+    if (taskTitlesByPriority.Medium.length) {
+      formattedResponse += '\nMedium priority tasks:\n' + taskTitlesByPriority.Medium.map(title => `"${title}"`).join('\n') + '\n';
+    }
+    if (taskTitlesByPriority.Low.length) {
+      formattedResponse += '\nLow priority tasks:\n' + taskTitlesByPriority.Low.map(title => `"${title}"`).join('\n');
+    }
+
+    res.send(formattedResponse);
+  } catch (error) {
+    res.status(500).send('Server error');
+  }
+});
+
+
 // GET all tasks
 //Voorbeeld: GET http://localhost:3000/tasks
 //Zoeken op task titel: http://localhost:3000/tasks?search="TaskTitel"
@@ -186,6 +219,23 @@ router.post('/:id/stickynotes', async (req, res) => {
     res.status(500).send('Server error');
   }
 });
+
+// GET all sticky notes for a specific task
+// Example: GET http://localhost:3000/tasks/65898360b57075c6ae776545/stickynotes
+router.get('/:id/stickynotes', async (req, res) => {
+  try {
+    const task = await Task.findById(req.params.id);
+    if (!task) {
+      return res.status(404).send('Task not found');
+    }
+
+    const stickyNotes = await StickyNote.find({ task: req.params.id });
+    res.json(stickyNotes);
+  } catch (error) {
+    res.status(500).send('Server error');
+  }
+});
+
 
 // DELETE a Sticky Note by ID
 // Voorbeeld: DELETE http://localhost:3000/tasks/stickynotes/65898cc4097100c7342bd592
